@@ -61,6 +61,7 @@ Add to your MCP settings file (e.g., `claude_desktop_config.json`):
 - `dom_query_selector` - Query and inspect elements by CSS selector
 - `dom_get_outer_html` - Retrieve the full HTML of an element
 - `dom_accessibility_tree` - Dump the accessibility tree
+- `dom_list_event_listeners` - List DOM event listeners attached to an element, document, or window
 
 ### DOM Interaction
 - `dom_click` - Click an element
@@ -94,3 +95,13 @@ Add to your MCP settings file (e.g., `claude_desktop_config.json`):
 - `list_logs` - Retrieve buffered console messages, exceptions, and logs
 - `clear_logs` - Clear the log buffer
 - `take_screenshot` - Capture a screenshot
+
+### Console Streaming
+- `console_subscribe` - Begin streaming console output in real time
+- `console_unsubscribe` - Stop streaming console output
+- `console_stream_status` - Report current console streaming status
+
+### Visual Overlays
+- `overlay_highlight` - Highlight an element matching a selector
+- `overlay_highlight_focused` - Highlight the currently focused element (document.activeElement)
+- `overlay_hide` - Hide any active overlay highlight immediately
