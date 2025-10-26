@@ -11,7 +11,9 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "prebuild": "pnpm run build:write-info",
+    "build": "pnpm run build:write-info && tsc -p tsconfig.json",
+    "build:write-info": "node scripts/write-build-info.mjs",
     "start": "node ./dist/index.js",
     "clean": "rm -rf dist",
     "prepublishOnly": "pnpm build"
