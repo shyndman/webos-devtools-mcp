@@ -61,7 +61,7 @@ export function registerOverlayTools(
       showInfo,
       color,
       borderColor,
-    }: HighlightArgs) => {
+    }: HighlightArgs): Promise<any> => {
       if (!selector) {
         return {
           isError: true,
@@ -75,7 +75,7 @@ export function registerOverlayTools(
       }
 
       try {
-        await overlay.highlight({
+        const {screenshot} = await overlay.highlight({
           selector,
           durationMs,
           includeMargin,
@@ -84,13 +84,24 @@ export function registerOverlayTools(
           color: color ? toOverlayColor(color) : undefined,
           borderColor: borderColor ? toOverlayColor(borderColor) : undefined,
         });
+        const content: Array<
+          | {type: 'text'; text: string}
+          | {type: 'image'; data: string; mimeType: string}
+        > = [
+          {
+            type: 'text',
+            text: `Highlighted ${selector} for ${Math.round((durationMs ?? 120000) / 1000)} seconds.`,
+          },
+        ];
+        if (screenshot) {
+          content.push({
+            type: 'image',
+            data: screenshot,
+            mimeType: 'image/png',
+          });
+        }
         return {
-          content: [
-            {
-              type: 'text',
-              text: `Highlighted ${selector} for ${Math.round((durationMs ?? 120000) / 1000)} seconds.`,
-            },
-          ],
+          content,
         };
       } catch (error) {
         return {
@@ -114,16 +125,27 @@ export function registerOverlayTools(
     {
       description: 'Highlight the currently focused element (document.activeElement).',
     },
-    async () => {
+    async (): Promise<any> => {
       try {
-        await overlay.highlightFocused();
+        const {screenshot} = await overlay.highlightFocused();
+        const content: Array<
+          | {type: 'text'; text: string}
+          | {type: 'image'; data: string; mimeType: string}
+        > = [
+          {
+            type: 'text',
+            text: 'Highlighted focused element.',
+          },
+        ];
+        if (screenshot) {
+          content.push({
+            type: 'image',
+            data: screenshot,
+            mimeType: 'image/png',
+          });
+        }
         return {
-          content: [
-            {
-              type: 'text',
-              text: 'Highlighted focused element.',
-            },
-          ],
+          content,
         };
       } catch (error) {
         return {
@@ -147,7 +169,7 @@ export function registerOverlayTools(
     {
       description: 'Hide any active overlay highlight immediately.',
     },
-    async () => {
+    async (): Promise<any> => {
       await overlay.hide();
       return {
         content: [
