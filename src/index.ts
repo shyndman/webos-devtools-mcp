@@ -8,6 +8,7 @@ import {registerDomTools} from './tools/domTools.js';
 import {registerDomActions} from './tools/domActions.js';
 import {registerNavigationTools} from './tools/navigationTools.js';
 import {registerStorageTools} from './tools/storageTools.js';
+import {registerNetworkTools} from './tools/networkTools.js';
 
 const LOG_KIND_TUPLE: [LogKind, ...LogKind[]] = [
   'console',
@@ -299,6 +300,7 @@ async function main(): Promise<void> {
   registerDomActions(server, session);
   registerNavigationTools(server, session);
   registerStorageTools(server, session);
+  registerNetworkTools(server, session);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);

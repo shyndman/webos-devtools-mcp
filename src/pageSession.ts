@@ -135,6 +135,10 @@ export class PageSession {
     return result as T;
   }
 
+  async getClient(): Promise<CDP.Client> {
+    return this.#ensureClient();
+  }
+
   async navigate(url: string, options: NavigateOptions = {}): Promise<void> {
     const client = await this.#ensureClient();
     const waitForLoad = options.waitForLoad ?? true;
@@ -196,9 +200,6 @@ export class PageSession {
     await client.Page.enable().catch(() => {});
     if (client.DOM?.enable) {
       await client.DOM.enable().catch(() => {});
-    }
-    if (client.Network?.enable) {
-      await client.Network.enable().catch(() => {});
     }
     if (client.Console?.enable) {
       await client.Console.enable().catch(() => {});
