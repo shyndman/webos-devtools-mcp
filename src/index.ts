@@ -12,6 +12,7 @@ import {registerStorageTools} from './tools/storageTools.js';
 import {registerNetworkTools} from './tools/networkTools.js';
 import {registerRemoteKeyTools} from './tools/remoteKeys.js';
 import {registerOverlayTools} from './tools/overlayTools.js';
+import {registerEventListenerTools} from './tools/eventListenerTools.js';
 
 const LOG_KIND_TUPLE: [LogKind, ...LogKind[]] = [
   'console',
@@ -306,6 +307,7 @@ async function main(): Promise<void> {
   registerNetworkTools(server, session);
   registerRemoteKeyTools(server, session);
   registerOverlayTools(server, session);
+  registerEventListenerTools(server, session);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
