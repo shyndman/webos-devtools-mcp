@@ -1,17 +1,40 @@
 {
   "name": "webos-devtools-mcp",
   "version": "1.0.0",
-  "description": "",
+  "description": "Page-scoped MCP server for Chrome DevTools Protocol automation, built for WebOS application debugging",
   "type": "module",
   "main": "./dist/index.js",
+  "bin": {
+    "webos-devtools-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node ./dist/index.js",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "prepublishOnly": "pnpm build"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "mcp",
+    "webos",
+    "chrome-devtools-protocol",
+    "browser-automation",
+    "debugging",
+    "tv",
+    "remote-control"
+  ],
+  "author": "Scott Hyndman <scotty.hyndman@gmail.com>",
   "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shyndman/webos-devtools-mcp.git"
+  },
+  "bugs": {
+    "url": "https://github.com/shyndman/webos-devtools-mcp/issues"
+  },
+  "homepage": "https://github.com/shyndman/webos-devtools-mcp#readme",
   "packageManager": "pnpm@10.19.0+sha512.c9fc7236e92adf5c8af42fd5bf1612df99c2ceb62f27047032f4720b33f8eacdde311865e91c411f2774f618d82f320808ecb51718bfa82c060c4ba7c76a32b8",
   "devDependencies": {
     "@types/chrome-remote-interface": "^0.31.14",
