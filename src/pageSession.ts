@@ -197,6 +197,9 @@ export class PageSession {
     if (client.DOM?.enable) {
       await client.DOM.enable().catch(() => {});
     }
+    if (client.Network?.enable) {
+      await client.Network.enable().catch(() => {});
+    }
     if (client.Console?.enable) {
       await client.Console.enable().catch(() => {});
     }
