@@ -3,17 +3,6 @@ import {PageSession} from './pageSession.js';
 const TEXT_SNIPPET_LIMIT = 200;
 const OUTER_HTML_SNIPPET_LIMIT = 400;
 
-export interface SelectorSummary {
-  selector: string;
-  nodeId: number;
-  backendNodeId: number;
-  nodeName: string;
-  attributes: Record<string, string>;
-  childNodeCount?: number;
-  textSnippet?: string | null;
-  outerHTMLSnippet?: string;
-}
-
 export class DomInspector {
   #session: PageSession;
   #accessibilityEnabled = false;
@@ -22,27 +11,47 @@ export class DomInspector {
     this.#session = session;
   }
 
-  async describeSelector(selector: string): Promise<SelectorSummary> {
-    const nodeId = await this.#querySelector(selector);
-    const node = await this.#describeNode(nodeId);
-    const attributes = this.#attributesToMap(node.attributes);
-    const textSnippet = await this.#readTextSnippet(selector);
-    const outerHtml = await this.#getOuterHtml(nodeId, OUTER_HTML_SNIPPET_LIMIT);
+  async describeSelector(params: {
+    selector: string;
+    index?: number;
+    maxResults?: number;
+    includeOuterHtml?: boolean;
+  }): Promise<SelectorSummary[]> {
+    const {selector, index, maxResults = 1, includeOuterHtml = false} = params;
+    if (index !== undefined && index < 0) {
+      throw new Error('Index must be 0 or greater.');
+    }
 
-    return {
-      selector,
-      nodeId,
-      backendNodeId: node.backendNodeId,
-      nodeName: node.nodeName,
-      attributes,
-      childNodeCount: node.childNodeCount,
-      textSnippet,
-      outerHTMLSnippet: outerHtml,
-    };
+    const matches = await this.#querySelectorAll(selector, maxResults, index);
+    if (!matches.length) {
+      throw new Error(`No element matches selector "${selector}".`);
+    }
+
+    const summaries: SelectorSummary[] = [];
+    for (const match of matches) {
+      const node = await this.#describeNode(match.nodeId);
+      summaries.push({
+        selector,
+        index: match.index,
+        nodeId: match.nodeId,
+        backendNodeId: node.backendNodeId ?? 0,
+        nodeName: node.nodeName,
+        attributes: this.#attributesToMap(node.attributes),
+        childNodeCount: node.childNodeCount,
+        textSnippet: await this.#readTextSnippet(selector, TEXT_SNIPPET_LIMIT, match.index),
+        outerHTMLSnippet: includeOuterHtml
+          ? await this.#getOuterHtml(match.nodeId, OUTER_HTML_SNIPPET_LIMIT)
+          : undefined,
+      });
+    }
+    return summaries;
   }
 
-  async getOuterHTML(selector: string): Promise<string> {
-    const nodeId = await this.#querySelector(selector);
+  async getOuterHTML(
+    selector: string,
+    index?: number,
+  ): Promise<string> {
+    const nodeId = await this.#querySelectorWithIndex(selector, index);
     const response = await this.#session.sendCommand<{outerHTML: string}>(
       'DOM.getOuterHTML',
       {nodeId},
@@ -80,21 +89,62 @@ export class DomInspector {
   }
 
   async #querySelector(selector: string): Promise<number> {
+    const results = await this.#querySelectorAll(selector, 1);
+    if (!results.length) {
+      throw new Error(`No element matches selector "${selector}".`);
+    }
+    return results[0]?.nodeId ?? 0;
+  }
+
+  async #querySelectorWithIndex(
+    selector: string,
+    index?: number,
+  ): Promise<number> {
+    const results = await this.#querySelectorAll(
+      selector,
+      index !== undefined ? index + 1 : 1,
+      index,
+    );
+    if (!results.length) {
+      throw new Error(`No element matches selector "${selector}".`);
+    }
+    return results[0]?.nodeId ?? 0;
+  }
+
+  async #querySelectorAll(
+    selector: string,
+    maxResults: number,
+    desiredIndex?: number,
+  ): Promise<Array<{nodeId: number; index: number}>> {
     const {root} = await this.#session.sendCommand<{root: {nodeId: number}}>(
       'DOM.getDocument',
       {depth: 0, pierce: true},
     );
-    const {nodeId} = await this.#session.sendCommand<{nodeId: number}>(
-      'DOM.querySelector',
+    const {nodeIds} = await this.#session.sendCommand<{nodeIds: number[]}>(
+      'DOM.querySelectorAll',
       {
         nodeId: root.nodeId,
         selector,
       },
     );
-    if (!nodeId) {
-      throw new Error(`No element matches selector "${selector}".`);
+
+    if (!nodeIds?.length) {
+      return [];
     }
-    return nodeId;
+
+    const matches: Array<{nodeId: number; index: number}> = [];
+    const capped = desiredIndex !== undefined ? desiredIndex + 1 : maxResults;
+    const length = Math.min(nodeIds.length, capped);
+    for (let i = 0; i < length; i++) {
+      if (desiredIndex !== undefined && i !== desiredIndex) {
+        continue;
+      }
+      matches.push({nodeId: nodeIds[i]!, index: i});
+      if (desiredIndex === undefined && matches.length >= maxResults) {
+        break;
+      }
+    }
+    return matches;
   }
 
   async #describeNode(nodeId: number): Promise<DescribedNode> {
@@ -112,9 +162,11 @@ export class DomInspector {
   async #readTextSnippet(
     selector: string,
     limit: number = TEXT_SNIPPET_LIMIT,
+    index?: number,
   ): Promise<string | null> {
     const expression = `(() => {
-      const node = document.querySelector(${JSON.stringify(selector)});
+      const nodes = document.querySelectorAll(${JSON.stringify(selector)});
+      const node = nodes[${index ?? 0}] ?? null;
       if (!node) {
         return null;
       }
@@ -239,8 +291,8 @@ export class DomInspector {
 }
 
 interface DescribedNode {
-  nodeId: number;
-  backendNodeId: number;
+  nodeId?: number;
+  backendNodeId?: number;
   nodeName: string;
   nodeValue?: string;
   childNodeCount?: number;
@@ -255,4 +307,16 @@ interface AccessibilityNode {
   description?: {value?: string};
   ignored?: boolean;
   childIds?: string[];
+}
+
+export interface SelectorSummary {
+  selector: string;
+  index: number;
+  nodeId: number;
+  backendNodeId: number;
+  nodeName: string;
+  attributes: Record<string, string>;
+  childNodeCount?: number;
+  textSnippet?: string | null;
+  outerHTMLSnippet?: string;
 }

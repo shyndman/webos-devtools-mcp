@@ -12,13 +12,34 @@ const selectorShape = {
 
 const describeShape = {
   ...selectorShape,
+  index: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('Optional zero-based index when multiple elements match.'),
+  maxResults: z
+    .number()
+    .int()
+    .min(1)
+    .max(10)
+    .default(1)
+    .describe('Maximum number of matches to return when index is not specified.'),
   includeOuterHtml: z
     .boolean()
     .default(false)
     .describe('Include a snippet of the element outer HTML in the response.'),
 } as const;
 
-const outerHtmlShape = selectorShape;
+const outerHtmlShape = {
+  ...selectorShape,
+  index: z
+    .number()
+    .int()
+    .min(0)
+    .optional()
+    .describe('Optional zero-based index of the element to return.'),
+} as const;
 
 const accessibilityShape = {
   selector: z
@@ -44,11 +65,14 @@ const accessibilityShape = {
 
 interface DescribeArgs {
   selector: string;
+  index?: number;
+  maxResults: number;
   includeOuterHtml: boolean;
 }
 
 interface OuterHtmlArgs {
   selector: string;
+  index?: number;
 }
 
 interface AccessibilityArgs {
@@ -68,10 +92,15 @@ export function registerDomTools(server: McpServer, session: PageSession): void 
       description: 'Inspect the first element that matches a CSS selector.',
       inputSchema: describeShape,
     },
-    async ({selector, includeOuterHtml}: DescribeArgs) => {
+    async ({selector, index, maxResults, includeOuterHtml}: DescribeArgs) => {
       try {
-        const summary = await inspector.describeSelector(selector);
-        const text = formatSelectorSummary(summary, includeOuterHtml);
+        const summaries = await inspector.describeSelector({
+          selector,
+          index,
+          maxResults,
+          includeOuterHtml,
+        });
+        const text = formatSummaries(summaries, includeOuterHtml);
         return {
           content: [
             {
@@ -100,9 +129,9 @@ export function registerDomTools(server: McpServer, session: PageSession): void 
       description: 'Return the full outer HTML of the first matching element.',
       inputSchema: outerHtmlShape,
     },
-    async ({selector}: OuterHtmlArgs) => {
+    async ({selector, index}: OuterHtmlArgs) => {
       try {
-        const outerHTML = await inspector.getOuterHTML(selector);
+        const outerHTML = await inspector.getOuterHTML(selector, index);
         return {
           content: [
             {
@@ -171,7 +200,9 @@ function formatSelectorSummary(
 ): string {
   const lines: string[] = [];
   lines.push(`Selector: ${summary.selector}`);
+  lines.push(`Match index: ${summary.index}`);
   lines.push(`Node: <${summary.nodeName.toLowerCase()}> (#${summary.nodeId})`);
+  lines.push(`Backend node id: ${summary.backendNodeId}`);
 
   const attributes = Object.entries(summary.attributes);
   if (attributes.length) {
@@ -201,4 +232,22 @@ function formatSelectorSummary(
   }
 
   return lines.join('\n');
+}
+
+function formatSummaries(
+  summaries: SelectorSummary[],
+  includeOuterHtml: boolean,
+): string {
+    if (!summaries.length) {
+      return 'No matches found.';
+    }
+    if (summaries.length === 1) {
+      return formatSelectorSummary(summaries[0]!, includeOuterHtml);
+    }
+    return summaries
+      .map((summary, idx) => {
+        const header = `Match ${idx + 1}/${summaries.length} (index ${summary.index})`;
+        return `${header}\n${formatSelectorSummary(summary, includeOuterHtml)}`;
+      })
+      .join('\n\n---\n\n');
 }
