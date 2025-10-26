@@ -13,6 +13,7 @@ import {registerNetworkTools} from './tools/networkTools.js';
 import {registerRemoteKeyTools} from './tools/remoteKeys.js';
 import {registerOverlayTools} from './tools/overlayTools.js';
 import {registerEventListenerTools} from './tools/eventListenerTools.js';
+import {registerConsoleStreamTools} from './tools/consoleStreamTools.js';
 
 const LOG_KIND_TUPLE: [LogKind, ...LogKind[]] = [
   'console',
@@ -308,6 +309,7 @@ async function main(): Promise<void> {
   registerRemoteKeyTools(server, session);
   registerOverlayTools(server, session);
   registerEventListenerTools(server, session);
+  registerConsoleStreamTools(server, session);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
