@@ -1,6 +1,6 @@
 {
   "name": "webos-devtools-mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Page-scoped MCP server for Chrome DevTools Protocol automation, built for WebOS application debugging",
   "type": "module",
   "main": "./dist/index.js",
