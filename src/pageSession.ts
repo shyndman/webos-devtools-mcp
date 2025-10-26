@@ -115,6 +115,15 @@ export class PageSession {
     this.#nextId = 1;
   }
 
+  async sendCommand<T = unknown>(
+    method: string,
+    params?: Record<string, unknown>,
+  ): Promise<T> {
+    const client = await this.#ensureClient();
+    const result = await client.send(method as never, params as never);
+    return result as T;
+  }
+
   async dispose(): Promise<void> {
     const client = this.#client;
     this.#client = undefined;
@@ -151,6 +160,9 @@ export class PageSession {
   async #enableDomains(client: CDP.Client): Promise<void> {
     await client.Runtime.enable();
     await client.Page.enable().catch(() => {});
+    if (client.DOM?.enable) {
+      await client.DOM.enable().catch(() => {});
+    }
     if (client.Console?.enable) {
       await client.Console.enable().catch(() => {});
     }

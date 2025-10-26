@@ -4,6 +4,7 @@ import {z} from 'zod';
 import type {ZodRawShape} from 'zod';
 
 import {LogKind, PageSession} from './pageSession.js';
+import {registerDomTools} from './tools/domTools.js';
 
 const LOG_KIND_TUPLE: [LogKind, ...LogKind[]] = [
   'console',
@@ -290,6 +291,8 @@ async function main(): Promise<void> {
       }
     },
   );
+
+  registerDomTools(server, session);
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
