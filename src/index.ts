@@ -119,7 +119,7 @@ function createServerInstructions(endpointHint: string): string {
   return [
     'Minimal MCP server that connects directly to a Chrome DevTools page socket.',
     'Provide the page WebSocket URL with --endpoint or PAGE_WS_ENDPOINT.',
-    `Example: chrome-page-devtools-mcp --endpoint ${endpointHint}`,
+    `Example: webos-devtools-mcp --endpoint ${endpointHint}`,
     'Tools: evaluate_expression, list_logs, clear_logs, take_screenshot.',
   ].join('\n');
 }
@@ -155,7 +155,7 @@ async function main(): Promise<void> {
 
   const server = new McpServer(
     {
-      name: 'chrome-page-devtools-mcp',
+      name: 'webos-devtools-mcp',
       version: '0.1.0',
       description: 'Page-scoped Chrome DevTools MCP server',
     },

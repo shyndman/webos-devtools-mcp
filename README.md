@@ -1,6 +1,7 @@
-# chrome-page-devtools-mcp
+# webos-devtools-mcp
 
-A page-scoped MCP server for Chrome DevTools Protocol automation.
+A page-scoped MCP server for Chrome DevTools Protocol automation. Works with any
+page-scoped websocket endpoint, but built for use with WebOS in particular.
 
 ## Background
 
@@ -42,7 +43,7 @@ Add to your MCP settings file (e.g., `claude_desktop_config.json`):
     "chrome-page-devtools": {
       "command": "node",
       "args": [
-        "/path/to/chrome-page-devtools-mcp/dist/index.js",
+        "/path/to/webos-devtools-mcp/dist/index.js",
         "--endpoint",
         "ws://localhost:9222/devtools/page/YOUR_PAGE_ID"
       ]
@@ -93,20 +94,3 @@ Add to your MCP settings file (e.g., `claude_desktop_config.json`):
 - `list_logs` - Retrieve buffered console messages, exceptions, and logs
 - `clear_logs` - Clear the log buffer
 - `take_screenshot` - Capture a screenshot
-
-## Finding Your Page WebSocket Endpoint
-
-1. Start Chrome with remote debugging:
-   ```bash
-   google-chrome --remote-debugging-port=9222
-   ```
-
-2. Visit `http://localhost:9222/json` to list all debuggable targets
-
-3. Find your page and copy its `webSocketDebuggerUrl`
-
-For WebOS or other embedded browsers, consult the platform's remote debugging documentation.
-
-## License
-
-ISC
