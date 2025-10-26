@@ -25,6 +25,17 @@ export interface EvaluateResult {
   description?: string;
 }
 
+export interface NavigateOptions {
+  waitForLoad?: boolean;
+  timeoutMs?: number;
+}
+
+export interface ReloadOptions {
+  ignoreCache?: boolean;
+  waitForLoad?: boolean;
+  timeoutMs?: number;
+}
+
 export interface ScreenshotOptions {
   format: 'png' | 'jpeg' | 'webp';
   quality?: number;
@@ -122,6 +133,29 @@ export class PageSession {
     const client = await this.#ensureClient();
     const result = await client.send(method as never, params as never);
     return result as T;
+  }
+
+  async navigate(url: string, options: NavigateOptions = {}): Promise<void> {
+    const client = await this.#ensureClient();
+    const waitForLoad = options.waitForLoad ?? true;
+    const timeout = options.timeoutMs ?? 15_000;
+    const response = await client.Page.navigate({url});
+    if (response?.errorText) {
+      throw new Error(`Navigation failed: ${response.errorText}`);
+    }
+    if (waitForLoad) {
+      await this.#waitForEvent('Page.loadEventFired', timeout);
+    }
+  }
+
+  async reload(options: ReloadOptions = {}): Promise<void> {
+    const client = await this.#ensureClient();
+    const waitForLoad = options.waitForLoad ?? true;
+    const timeout = options.timeoutMs ?? 15_000;
+    await client.Page.reload({ignoreCache: options.ignoreCache ?? false});
+    if (waitForLoad) {
+      await this.#waitForEvent('Page.loadEventFired', timeout);
+    }
   }
 
   async dispose(): Promise<void> {
@@ -307,5 +341,34 @@ export class PageSession {
       return new Date(value / 1000);
     }
     return new Date(value * 1000);
+  }
+
+  async #waitForEvent(eventName: string, timeoutMs: number): Promise<void> {
+    const client = await this.#ensureClient();
+    const emitter = client as unknown as {
+      on(event: string, handler: (...args: unknown[]) => void): void;
+      off?(event: string, handler: (...args: unknown[]) => void): void;
+      removeListener?(event: string, handler: (...args: unknown[]) => void): void;
+    };
+
+    await new Promise<void>((resolve, reject) => {
+      const handler = () => {
+        cleanup();
+        resolve();
+      };
+      const cleanup = () => {
+        clearTimeout(timer);
+        if (typeof emitter.off === 'function') {
+          emitter.off(eventName, handler);
+        } else if (typeof emitter.removeListener === 'function') {
+          emitter.removeListener(eventName, handler);
+        }
+      };
+      const timer = setTimeout(() => {
+        cleanup();
+        reject(new Error(`Timed out waiting for ${eventName}`));
+      }, timeoutMs);
+      emitter.on(eventName, handler);
+    });
   }
 }
