@@ -126,6 +126,7 @@ function createServerInstructions(endpointHint: string): string {
     'Provide the page WebSocket URL with --endpoint or PAGE_WS_ENDPOINT.',
     `Example: webos-devtools-mcp --endpoint ${endpointHint}`,
     'Tools: evaluate_expression, list_logs, clear_logs, take_screenshot.',
+    'Filter tool categories via --tools=dom,network or --without-tools=remote.',
   ].join('\n');
 }
 
@@ -153,22 +154,94 @@ function formatEntries(entries: Awaited<ReturnType<PageSession['getEntries']>>):
     .join('\n');
 }
 
-async function main(): Promise<void> {
-  const endpoint = assertEndpoint(resolveEndpoint(process.argv.slice(2)));
-  const session = new PageSession(endpoint);
-  await session.connect();
+const ALL_TOOL_CATEGORIES = [
+  'core',
+  'dom',
+  'dom-actions',
+  'navigation',
+  'storage',
+  'network',
+  'remote',
+  'overlay',
+  'events',
+  'console',
+] as const;
 
-  const server = new McpServer(
-    {
-      name: 'webos-devtools-mcp',
-      version: '0.1.0',
-      description: 'Page-scoped Chrome DevTools MCP server',
-    },
-    {
-      instructions: createServerInstructions(endpoint),
-    },
+type ToolCategory = (typeof ALL_TOOL_CATEGORIES)[number];
+
+function createToolCategoryFilter(argv: string[]): (category: ToolCategory) => boolean {
+  const include = parseCategoryArg(argv, ['--tools', '--tool-categories', '--include-tools']);
+  const exclude = parseCategoryArg(argv, ['--without-tools', '--exclude-tools', '--tool-exclude']);
+
+  const includeSet = include?.size ? include : undefined;
+  const excludeSet = exclude ?? new Set<ToolCategory>();
+
+  const enabled = ALL_TOOL_CATEGORIES.filter(category => {
+    if (includeSet && !includeSet.has(category)) {
+      return false;
+    }
+    if (excludeSet.has(category)) {
+      return false;
+    }
+    return true;
+  });
+
+  console.error(
+    `[webos-devtools-mcp] enabled tool categories: ${enabled.join(', ') || 'none'}`,
   );
 
+  return (category: ToolCategory) => {
+    if (includeSet && !includeSet.has(category)) {
+      return false;
+    }
+    if (excludeSet.has(category)) {
+      return false;
+    }
+    return true;
+  };
+}
+
+function parseCategoryArg(argv: string[], names: string[]): Set<ToolCategory> | undefined {
+  const value = getArgValue(argv, names);
+  if (!value) {
+    return undefined;
+  }
+  const set = new Set<ToolCategory>();
+  for (const rawToken of value.split(',')) {
+    const token = rawToken.trim().toLowerCase();
+    if (!token) {
+      continue;
+    }
+    if ((ALL_TOOL_CATEGORIES as readonly string[]).includes(token)) {
+      set.add(token as ToolCategory);
+    } else {
+      console.error(
+        `[webos-devtools-mcp] ignoring unknown tool category "${token}"`,
+      );
+    }
+  }
+  return set;
+}
+
+function getArgValue(argv: string[], names: string[]): string | undefined {
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    for (const name of names) {
+      if (arg === name) {
+        const next = argv[i + 1];
+        if (next && !next.startsWith('--')) {
+          return next;
+        }
+      }
+      if (arg.startsWith(`${name}=`)) {
+        return arg.slice(name.length + 1);
+      }
+    }
+  }
+  return undefined;
+}
+
+function registerCoreTools(server: McpServer, session: PageSession): void {
   server.registerTool(
     'evaluate_expression',
     {
@@ -301,16 +374,56 @@ async function main(): Promise<void> {
       }
     },
   );
+}
 
-  registerDomTools(server, session);
-  registerDomActions(server, session);
-  registerNavigationTools(server, session);
-  registerStorageTools(server, session);
-  registerNetworkTools(server, session);
-  registerRemoteKeyTools(server, session);
-  registerOverlayTools(server, session);
-  registerEventListenerTools(server, session);
-  registerConsoleStreamTools(server, session);
+async function main(): Promise<void> {
+  const endpoint = assertEndpoint(resolveEndpoint(process.argv.slice(2)));
+  const session = new PageSession(endpoint);
+  await session.connect();
+
+  const server = new McpServer(
+    {
+      name: 'webos-devtools-mcp',
+      version: '0.1.0',
+      description: 'Page-scoped Chrome DevTools MCP server',
+    },
+    {
+      instructions: createServerInstructions(endpoint),
+    },
+  );
+
+  const allowCategory = createToolCategoryFilter(process.argv.slice(2));
+
+  if (allowCategory('core')) {
+    registerCoreTools(server, session);
+  }
+  if (allowCategory('dom')) {
+    registerDomTools(server, session);
+  }
+  if (allowCategory('dom-actions')) {
+    registerDomActions(server, session);
+  }
+  if (allowCategory('navigation')) {
+    registerNavigationTools(server, session);
+  }
+  if (allowCategory('storage')) {
+    registerStorageTools(server, session);
+  }
+  if (allowCategory('network')) {
+    registerNetworkTools(server, session);
+  }
+  if (allowCategory('remote')) {
+    registerRemoteKeyTools(server, session);
+  }
+  if (allowCategory('overlay')) {
+    registerOverlayTools(server, session);
+  }
+  if (allowCategory('events')) {
+    registerEventListenerTools(server, session);
+  }
+  if (allowCategory('console')) {
+    registerConsoleStreamTools(server, session);
+  }
   registerStaticResources(server);
 
   const transport = new StdioServerTransport();
